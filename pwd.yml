@@ -1,18 +1,19 @@
-version: "3"
-
 services:
   backend:
-    image: frappe/erpnext:v15.48.2
+    image: frappe/erpnext:v15.48.3
     networks:
       - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
       - apps:/home/frappe/frappe-bench/apps
-
     environment:
       DB_HOST: db
       DB_PORT: "3306"
@@ -20,12 +21,16 @@ services:
       MARIADB_ROOT_PASSWORD: admin
 
   configurator:
-    image: frappe/erpnext:v15.48.2
+    image: frappe/erpnext:v15.48.3
     networks:
       - frappe_network
     deploy:
       restart_policy:
         condition: none
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
     entrypoint:
       - bash
       - -c
@@ -49,12 +54,16 @@ services:
       - logs:/home/frappe/frappe-bench/logs
 
   create-site:
-    image: frappe/erpnext:v15.48.2
+    image: frappe/erpnext:v15.48.3
     networks:
       - frappe_network
     deploy:
       restart_policy:
         condition: none
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
     volumes:
       - sites:/home/frappe/frappe-bench/sites
       - logs:/home/frappe/frappe-bench/logs
@@ -87,30 +96,32 @@ services:
           --set-default;
 
   db:
-    image: mariadb:10.3
+    image: mariadb:10.6
     networks:
       - frappe_network
     healthcheck:
-      test: mysqladmin ping -h localhost --password=admin
-      interval: 1s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--password=admin"]
+      interval: 5s
       retries: 20
     deploy:
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --skip-character-set-client-handshake
-      # - --skip-innodb-read-only-compressed # Temporary fix for MariaDB 10.6
     environment:
       MYSQL_ROOT_PASSWORD: admin
       MARIADB_ROOT_PASSWORD: admin
-      
     volumes:
       - db-data:/var/lib/mysql
 
   frontend:
-    image: frappe/erpnext:v15.48.2
+    image: frappe/erpnext:v15.48.3
     networks:
       - frappe_network
     depends_on:
@@ -118,11 +129,15 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
     command:
       - nginx-entrypoint.sh
     environment:
       BACKEND: backend:8000
-      FRAPPE_SITE_NAME_HEADER: frontend
+      FRAPPE_SITE_NAME_HEADER: frappe.com
       SOCKETIO: websocket:9000
       UPSTREAM_REAL_IP_ADDRESS: 127.0.0.1
       UPSTREAM_REAL_IP_HEADER: X-Forwarded-For
@@ -136,12 +151,16 @@ services:
       - "443:8080"
 
   queue-long:
-    image: frappe/erpnext:v15.48.2
+    image: frappe/erpnext:v15.48.3
     networks:
       - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
     command:
       - bench
       - worker
@@ -152,12 +171,16 @@ services:
       - logs:/home/frappe/frappe-bench/logs
 
   queue-short:
-    image: frappe/erpnext:v15.48.2
+    image: frappe/erpnext:v15.48.3
     networks:
       - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
     command:
       - bench
       - worker
@@ -174,8 +197,17 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
     volumes:
       - redis-queue-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   redis-cache:
     image: redis:6.2-alpine
@@ -184,16 +216,29 @@ services:
     deploy:
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
     volumes:
       - redis-cache-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   scheduler:
-    image: frappe/erpnext:v15.48.2
+    image: frappe/erpnext:v15.48.3
     networks:
       - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
     command:
       - bench
       - schedule
@@ -202,12 +247,16 @@ services:
       - logs:/home/frappe/frappe-bench/logs
 
   websocket:
-    image: frappe/erpnext:v15.48.2
+    image: frappe/erpnext:v15.48.3
     networks:
       - frappe_network
     deploy:
       restart_policy:
         condition: on-failure
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
     command:
       - node
       - /home/frappe/frappe-bench/apps/frappe/socketio.js
@@ -225,5 +274,4 @@ volumes:
 
 networks:
   frappe_network:
-    name: frappe_network
     driver: bridge
