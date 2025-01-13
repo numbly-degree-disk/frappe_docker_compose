@@ -88,7 +88,7 @@ services:
           fi
         done;
         echo "sites/common_site_config.json found";
-        bench new-site frappe.com --no-mariadb-socket \
+        bench new-site frappe.com --mariadb-user-host-login-scope='%' --no-mariadb-socket \
           --admin-password=admin \
           --db-root-username=root \
           --db-root-password=admin \
